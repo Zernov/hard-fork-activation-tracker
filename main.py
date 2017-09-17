@@ -85,9 +85,8 @@ while current_block_time_mtp < target_time:
         current_block_time_mtp = get_block_time_mtp(rpc_connection, current_block)
         count = count + 1
         approx = (approx * count + get_average_time(rpc_connection, current_block)) / (count + 1)
-        #print(to_datetime(current_time), to_datetime(target_time), to_datetime(approx))
     left = approx + target_time - current_time
-    sys.stdout.write("\rCurrent time: %s | Time left: %s" % (to_datetime(current_time), ("-" if left < 0 else "+") + to_time(abs(left))))
+    sys.stdout.write("\rCurrent time: %s | Time left: %s       " % (to_datetime(current_time), ("-" if left < 0 else "+") + to_time(abs(left))))
     sys.stdout.flush()
 
 print("\n\n[ Activation time ]")
