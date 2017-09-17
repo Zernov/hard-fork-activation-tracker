@@ -43,7 +43,7 @@ def new_block_mined(current_time, current_block):
     return rpc_connection.getblockcount != current_block if real_time else get_block_time(current_block + 1) <= current_time
 
 def get_average_time(current_block):
-    return (get_block_time(current_block) - get_block_time_mtp(current_block)) / 2
+    return (get_block_time(current_block) - get_block_time_mtp(current_block))
 
 def to_timestamp(string):
     return int(datetime.datetime.strptime(string, '%d.%m.%Y,%H:%M:%S').strftime('%s'))
@@ -74,6 +74,7 @@ current_block_time_mtp = get_block_time_mtp(current_block)
 approx = get_average_time(current_block)
 border_block_time = target_time
 mined_blocks = 0
+before_target_time = current_time < target_time
 
 print("\nTarget time: %s" % (to_datetime(target_time)))
 
@@ -82,12 +83,13 @@ while current_block_time_mtp < target_time:
     if new_block_mined(current_time, current_block):
         current_block = current_block + 1
         current_block_time_mtp = get_block_time_mtp(current_block)
-        if current_time > target_time:
-            border_block_time = current_time
+        if current_time > target_time and before_target_time:
+            before_target_time = False
+            border_block_time = get_block_time(current_block)
         mined_blocks = mined_blocks + 1
         approx = (approx * mined_blocks + get_average_time(current_block)) / (mined_blocks + 1)
     left = approx + border_block_time - current_time
-    sys.stdout.write("\rCurrent time: %s | Time left: %s      " % (to_datetime(current_time), ("-" if left < 0 else "+") + to_time(abs(left))))
+    sys.stdout.write("\rCurrent time: %s | Time left: %s | Approx: %s      " % (to_datetime(current_time), ("-" if left < 0 else "+") + to_time(abs(left)), approx))
     sys.stdout.flush()
 
 print("\n\n[ Activation time ]")
