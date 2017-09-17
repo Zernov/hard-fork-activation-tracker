@@ -12,10 +12,8 @@ import sys
 #logging.getLogger("BitcoinRPC").setLevel(logging.DEBUG)
 #max_height = 300374, max_timestamp = 1399882427, max_datetime = 12.05.2014,12:13:47
 
-rpc_user = "bitcoinrpc"
-rpc_password = "dfVEkRIkhVNWB1UVhfnrhq2IIcWELXNLcIEHmClN9lwK"
-rpc_host = "127.0.0.1:8332"
-real_time = False
+def connect(rpc_user, rpc_password, rpc_host):
+    return AuthServiceProxy('http://%s:%s@%s'%(rpc_user, rpc_password, rpc_host))
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='hard fork activation tracker')
@@ -28,18 +26,24 @@ def get_arguments():
         args.t = to_timestamp(args.d)
     return int(args.t), args.b
 
-def connect(rpc_user, rpc_password, rpc_host):
-    return AuthServiceProxy('http://%s:%s@%s'%(rpc_user, rpc_password, rpc_host))
-
-def get_block_time(rpc_connection, block_height):
+def get_block_time(block_height):
     block_hash = rpc_connection.getblockhash(block_height)
     return rpc_connection.getblock(block_hash)['time']
 
-def get_block_time_mtp(rpc_connection, block_height):
+def get_block_time_mtp(block_height):
     block_hashes = rpc_connection.batch_([ [ 'getblockhash', height ] for height in range(block_height - 11, block_height) ])
     blocks = rpc_connection.batch_([ [ 'getblock', h ] for h in block_hashes ])
     block_times = [ block['time'] for block in blocks ]
     return sorted(block_times)[5]
+
+def update_time(current_time):
+    return int(datetime.now().strftime('%s')) if real_time else current_time + 60
+
+def new_block_mined(current_time, current_block):
+    return rpc_connection.getblockcount != current_block if real_time else get_block_time(current_block + 1) <= current_time
+
+def get_average_time(current_block):
+    return (get_block_time(current_block) - get_block_time_mtp(current_block)) / 2
 
 def to_timestamp(string):
     return int(datetime.datetime.strptime(string, '%d.%m.%Y,%H:%M:%S').strftime('%s'))
@@ -50,16 +54,11 @@ def to_datetime(timestamp):
 def to_time(timestamp):
     return str(datetime.timedelta(seconds=timestamp))
 
-def update(current_time):
-    return int(datetime.now().strftime('%s')) if real_time else current_time + 60
-
-def new_block_mined(rpc_connection, current_time, current_block):
-    return rpc_connection.getblockcount != current_block if real_time else get_block_time(rpc_connection, current_block + 1) <= current_time
-
-def get_average_time(rpc_connection, current_block):
-    return (get_block_time(rpc_connection, current_block) - get_block_time_mtp(rpc_connection, current_block)) / 2
-
+rpc_user = "bitcoinrpc"
+rpc_password = "dfVEkRIkhVNWB1UVhfnrhq2IIcWELXNLcIEHmClN9lwK"
+rpc_host = "127.0.0.1:8332"
 rpc_connection = connect(rpc_user, rpc_password, rpc_host)
+real_time = False
 target_time, initial_block = get_arguments()
 
 if initial_block == None:
@@ -68,29 +67,31 @@ if initial_block == None:
     real_time = True
 else:
     initial_block = int(initial_block)
-    current_time = get_block_time(rpc_connection, initial_block)
+    current_time = get_block_time(initial_block)
 
 current_block = initial_block
-current_block_time_mtp = get_block_time_mtp(rpc_connection, current_block)
+current_block_time_mtp = get_block_time_mtp(current_block)
+approx = get_average_time(current_block)
+border_block_time = target_time
+mined_blocks = 0
 
 print("\nTarget time: %s" % (to_datetime(target_time)))
 
-count = 0
-approx = get_average_time(rpc_connection, current_block)
-
 while current_block_time_mtp < target_time:
-    current_time = update(current_time)
-    if new_block_mined(rpc_connection, current_time, current_block):
+    current_time = update_time(current_time)
+    if new_block_mined(current_time, current_block):
         current_block = current_block + 1
-        current_block_time_mtp = get_block_time_mtp(rpc_connection, current_block)
-        count = count + 1
-        approx = (approx * count + get_average_time(rpc_connection, current_block)) / (count + 1)
-    left = approx + target_time - current_time
-    sys.stdout.write("\rCurrent time: %s | Time left: %s       " % (to_datetime(current_time), ("-" if left < 0 else "+") + to_time(abs(left))))
+        current_block_time_mtp = get_block_time_mtp(current_block)
+        if current_time > target_time:
+            border_block_time = current_time
+        mined_blocks = mined_blocks + 1
+        approx = (approx * mined_blocks + get_average_time(current_block)) / (mined_blocks + 1)
+    left = approx + border_block_time - current_time
+    sys.stdout.write("\rCurrent time: %s | Time left: %s      " % (to_datetime(current_time), ("-" if left < 0 else "+") + to_time(abs(left))))
     sys.stdout.flush()
 
 print("\n\n[ Activation time ]")
 print(" The block #%s" % (current_block))
-print(" Timestamp: %s" % (to_datetime(get_block_time(rpc_connection, current_block))))
+print(" Timestamp: %s" % (to_datetime(get_block_time(current_block))))
 print("       MTP: %s" % (to_datetime(current_block_time_mtp)))
 print("[ Activation time ]\n")
