@@ -12,8 +12,8 @@ rpc_password = "dfVEkRIkhVNWB1UVhfnrhq2IIcWELXNLcIEHmClN9lwK"
 rpc_host = "127.0.0.1:8332"
 rpc_connection = AuthServiceProxy("http://%s:%s@%s"%(rpc_user, rpc_password, rpc_host))
 
-i = 16940
-n = 273796
+i = 273796
+n = 300375
 
 while i < n:
     block_hash = rpc_connection.getblockhash(i)
